@@ -3,6 +3,9 @@ import { useMediaQuery } from 'react-responsive';
 import ThreeCanvas from './components/ThreeCanvas';
 import ReactDOM from 'react-dom/client';
 
+// Import your background image (you can place this in /src/img/ or wherever you want)
+import backgroundImage from '/src/img/bjbg.jpg';
+
 function App() {
   const isMobile = useMediaQuery({ query: '(max-width: 600px)' });
   const gameRef = useRef(null);
@@ -28,7 +31,10 @@ function App() {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: '#000', // Black background
+      backgroundImage: `url(${backgroundImage})`, // Set background image here
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
       color: 'white',
       fontFamily: 'Arial, sans-serif',
     },

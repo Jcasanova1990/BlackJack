@@ -1,325 +1,325 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
-const jumpSound = new Audio('/sounds/flap.mp3');
-const gameOverSound = new Audio('/sounds/go.mp3');
+// Import images
+const cardImages = import.meta.glob("/src/img/cards/*.png", { eager: true });
 
-export default function FlappyBird() {
-  const gameWidth = 1600;
-  const gameHeight = 2400;
-  const birdSize = 100;
-  const gravity = 3.5;
-  const jumpPower = -35;
-  const buildingWidth = 180;
-  const buildingGap = 600;
+// Import sounds
+import shuffleSound from "/src/sounds/shuffle.mp3";
+import clickSound from "/src/sounds/click.mp3";
+import backgroundMusic from "/src/sounds/bg1.mp3";
 
-  const [birdY, setBirdY] = useState(gameHeight / 2 - birdSize / 2);
-  const [velocity, setVelocity] = useState(0);
-  const [buildings, setBuildings] = useState([]);
-  const [score, setScore] = useState(0);
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [isGameStarted, setIsGameStarted] = useState(false);
+// Background image
+import tableBackground from "/src/img/table.jpg";
 
-  useEffect(() => {
-    if (!isGameStarted) return;
+const suits = ["spades", "hearts", "diamonds", "clubs"];
+const values = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
-    resetGame();
-    const handleKeyPress = (e) => {
-      if (e.key === " ") jump();
-    };
-    window.addEventListener("keydown", handleKeyPress);
-    return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [isGameStarted]);
+function createDeck() {
+    let deck = [];
+    for (let suit of suits) {
+        for (let value of values) {
+            deck.push({ suit, value });
+        }
+    }
+    return deck.sort(() => Math.random() - 0.5);
+}
 
-  useEffect(() => {
-    if (isGameOver || !isGameStarted) return;
-
-    const gameLoop = setInterval(() => {
-      setBirdY((prev) => prev + velocity);
-      setVelocity((prev) => prev + gravity);
-      moveBuildings();
-      checkCollision();
-      updateScore();
-    }, 30);
-
-    return () => clearInterval(gameLoop);
-  }, [velocity, buildings, isGameOver, isGameStarted]);
-
-  useEffect(() => {
-    if (isGameOver || !isGameStarted) return;
-
-    const buildingTimer = setInterval(() => {
-      addBuilding();
-    }, 1000);
-
-    return () => clearInterval(buildingTimer);
-  }, [isGameOver, isGameStarted]);
-
-  function jump() {
-    jumpSound.pause();
-    jumpSound.currentTime = 0;
-    jumpSound.play();
-    setVelocity(jumpPower);
-  }
-
-  function resetGame() {
-    setBirdY(gameHeight / 2 - birdSize / 2);
-    setVelocity(0);
-    setBuildings([]);
-    setScore(0);
-    setIsGameOver(false);
-  }
-
-  function addBuilding() {
-    const heightTop = getRandomBuildingHeight();
-    setBuildings((prev) => [
-      ...prev,
-      { x: gameWidth, heightTop },
-    ]);
-  }
-
-  function moveBuildings() {
-    setBuildings((prev) => {
-      return prev
-        .map((building) => ({ ...building, x: building.x - 12 * 1.55 }))
-        .filter((building) => building.x + buildingWidth > 0);
+function calculateScore(hand) {
+    let score = 0;
+    let aceCount = 0;
+    hand.forEach(card => {
+        if (card.value === "A") {
+            aceCount++;
+            score += 11;
+        } else if (["J", "Q", "K"].includes(card.value)) {
+            score += 10;
+        } else {
+            score += parseInt(card.value);
+        }
     });
-  }
-
-  function checkCollision() {
-    if (birdY < 0 || birdY + birdSize > gameHeight) {
-      if (!isGameOver) {
-        gameOverSound.play();
-        setIsGameOver(true);
-      }
-      return;
+    while (score > 21 && aceCount > 0) {
+        score -= 10;
+        aceCount--;
     }
+    return score;
+}
 
-    const birdLeft = 200;
-    const birdRight = birdLeft + birdSize;
-    const birdTop = birdY;
-    const birdBottom = birdY + birdSize;
+function App() {
+    const [deck, setDeck] = useState([]);
+    const [playerHand, setPlayerHand] = useState([]);
+    const [dealerHand, setDealerHand] = useState([]);
+    const [playerScore, setPlayerScore] = useState(0);
+    const [dealerScore, setDealerScore] = useState(0);
+    const [gameOver, setGameOver] = useState(false);
+    const [result, setResult] = useState("");
+    const [showWelcome, setShowWelcome] = useState(true);
+    const [volume, setVolume] = useState(0.5);
+    const [isHovered, setIsHovered] = useState({
+        hit: false,
+        stand: false,
+        newGame: false,
+    });
 
-    for (const building of buildings) {
-      const buildingLeft = building.x;
-      const buildingRight = building.x + buildingWidth;
+    const bgMusicRef = useRef(new Audio(backgroundMusic));
+    bgMusicRef.current.loop = true;
 
-      const topBuildingHeight = building.heightTop.height;
-      const bottomBuildingTop = topBuildingHeight + buildingGap;
+    useEffect(() => {
+        bgMusicRef.current.volume = volume;
+        if (!showWelcome) bgMusicRef.current.play();
+    }, [volume, showWelcome]);
 
-      const hitsTopBuilding = (
-        birdRight > buildingLeft &&
-        birdLeft < buildingRight &&
-        birdTop < topBuildingHeight
-      );
+    const playSound = (sound) => {
+        const audio = new Audio(sound);
+        audio.volume = volume;
+        audio.play();
+    };
 
-      const hitsBottomBuilding = (
-        birdRight > buildingLeft &&
-        birdLeft < buildingRight &&
-        birdBottom > bottomBuildingTop
-      );
+    const dealCard = (setHand) => {
+        if (deck.length === 0) return null;
+        const newDeck = [...deck];
+        const card = newDeck.pop();
+        setDeck(newDeck);
+        setHand(prev => [...prev, card]);
+        return card;
+    };
 
-      if (hitsTopBuilding || hitsBottomBuilding) {
-        if (!isGameOver) {
-          gameOverSound.play();
-          setIsGameOver(true);
+    const startGame = () => {
+        playSound(shuffleSound);
+
+        const newDeck = createDeck();
+        setDeck(newDeck);
+
+        const playerStart = [newDeck.pop(), newDeck.pop()];
+        const dealerStart = [newDeck.pop(), newDeck.pop()];
+
+        setPlayerHand(playerStart);
+        setDealerHand(dealerStart);
+        setPlayerScore(calculateScore(playerStart));
+        setDealerScore(calculateScore(dealerStart));
+        setGameOver(false);
+        setResult("");
+    };
+
+    const handleHit = () => {
+        if (gameOver) return;
+        playSound(clickSound);
+
+        const card = dealCard(setPlayerHand);
+        if (card) {
+            const newScore = calculateScore([...playerHand, card]);
+            setPlayerScore(newScore);
+            if (newScore > 21) {
+                setResult("You Busted!");
+                setGameOver(true);
+            }
         }
-        return;
-      }
-    }
-  }
+    };
 
-  function updateScore() {
-    const birdLeft = 200;
-    for (const building of buildings) {
-      const buildingLeft = building.x;
-      const buildingRight = building.x + buildingWidth;
+    const handleStand = () => {
+        if (gameOver) return;
+        playSound(clickSound);
 
-      if (birdLeft > buildingLeft && birdLeft < buildingRight && !building.passed) {
-        const topBuildingHeight = building.heightTop.height;
-        const bottomBuildingTop = topBuildingHeight + buildingGap;
-        const birdBottom = birdY + birdSize;
+        let newScore = dealerScore;
 
-        if (birdY > topBuildingHeight && birdBottom < bottomBuildingTop) {
-          setScore((prevScore) => prevScore + 1);
-          building.passed = true;
+        while (newScore < 17) {
+            const card = dealCard(setDealerHand);
+            if (!card) break;
+            newScore = calculateScore([...dealerHand, card]);
         }
-      }
-    }
-  }
 
-  function getRandomBuildingHeight() {
-    const heights = [
-      { label: "lg bldg", height: 1300 },
-      { label: "md bldg", height: 900 },
-      { label: "sm bldg", height: 500 },
-    ];
-    return heights[Math.floor(Math.random() * heights.length)];
-  }
+        setDealerScore(newScore);
+        setGameOver(true);
 
-  function buildingImage(label) {
-    switch (label) {
-      case "lg bldg":
-        return 'url(/img/Large_Building.png)';
-      case "md bldg":
-        return 'url(/img/Medium_Building.png)';
-      case "sm bldg":
-        return 'url(/img/Small_Building.png)';
-    }
-  }
+        if (newScore > 21 || playerScore > newScore) {
+            setResult("You Win!");
+        } else if (playerScore < newScore) {
+            setResult("Dealer Wins!");
+        } else {
+            setResult("It's a Tie!");
+        }
+    };
 
-  function startGame() {
-    setIsGameStarted(true);
-  }
+    const startFromWelcome = () => {
+        setShowWelcome(false);
+        startGame();
+    };
 
-  return (
-    <div style={styles.gameContainer}>
-      {!isGameStarted ? (
-        <div style={styles.welcomeScreen}>
-          <h1 style={styles.welcomeTitle}>Welcome to Go Pigeon</h1>
-          <button onClick={startGame} style={styles.startButton}>Start Game</button>
+    return (
+        <div style={{ ...styles.game, backgroundImage: `url(${tableBackground})` }}>
+            {showWelcome ? (
+                <div style={styles.welcomeScreen}>
+                    <h1>Welcome to Blackjack!</h1>
+                    <button
+                        style={{ 
+                            ...styles.button,
+                            ...(isHovered.newGame ? styles.buttonHover : {})
+                        }}
+                        onMouseEnter={() => setIsHovered({ ...isHovered, newGame: true })}
+                        onMouseLeave={() => setIsHovered({ ...isHovered, newGame: false })}
+                        onClick={startFromWelcome}
+                    >
+                        Start Game
+                    </button>
+                </div>
+            ) : (
+                <>
+                    <h1 style={styles.title}>Blackjack</h1>
+
+                    <div style={styles.section}>
+                        <h2>Dealer - Points: {dealerScore}</h2>
+                        <div style={styles.hand}>
+                            {dealerHand.map((card, index) => {
+                                const fileName = `/src/img/cards/${card.value.toLowerCase()}_of_${card.suit}.png`;
+                                return (
+                                    <img
+                                        key={index}
+                                        style={styles.card}
+                                        src={cardImages[fileName]?.default || cardImages[fileName]}
+                                        alt={`${card.value} of ${card.suit}`}
+                                    />
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div style={styles.section}>
+                        <h2>Player - Points: {playerScore}</h2>
+                        <div style={styles.hand}>
+                            {playerHand.map((card, index) => {
+                                const fileName = `/src/img/cards/${card.value.toLowerCase()}_of_${card.suit}.png`;
+                                return (
+                                    <img
+                                        key={index}
+                                        style={styles.card}
+                                        src={cardImages[fileName]?.default || cardImages[fileName]}
+                                        alt={`${card.value} of ${card.suit}`}
+                                    />
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div style={styles.controls}>
+                        <button
+                            style={{ 
+                                ...styles.button,
+                                ...(isHovered.hit ? styles.buttonHover : {})
+                            }}
+                            onMouseEnter={() => setIsHovered({ ...isHovered, hit: true })}
+                            onMouseLeave={() => setIsHovered({ ...isHovered, hit: false })}
+                            onClick={handleHit}
+                            disabled={gameOver}
+                        >
+                            Hit
+                        </button>
+
+                        <button
+                            style={{ 
+                                ...styles.button,
+                                ...(isHovered.stand ? styles.buttonHover : {})
+                            }}
+                            onMouseEnter={() => setIsHovered({ ...isHovered, stand: true })}
+                            onMouseLeave={() => setIsHovered({ ...isHovered, stand: false })}
+                            onClick={handleStand}
+                            disabled={gameOver}
+                        >
+                            Stand
+                        </button>
+
+                        <button
+                            style={{ 
+                                ...styles.button,
+                                ...(isHovered.newGame ? styles.buttonHover : {})
+                            }}
+                            onMouseEnter={() => setIsHovered({ ...isHovered, newGame: true })}
+                            onMouseLeave={() => setIsHovered({ ...isHovered, newGame: false })}
+                            onClick={startGame}
+                        >
+                            New Game
+                        </button>
+                    </div>
+
+                    <h2>{result}</h2>
+
+                    <div style={styles.volumeControl}>
+                        <label>Volume:</label>
+                        <input type="range" min="0" max="1" step="0.01" value={volume} onChange={e => setVolume(Number(e.target.value))} />
+                    </div>
+                </>
+            )}
         </div>
-      ) : (
-        <>
-          <div style={{ ...styles.bird, top: birdY }} />
-
-          {buildings.map((building, index) => (
-            <React.Fragment key={index}>
-              <div
-                style={{
-                  ...styles.building,
-                  height: building.heightTop.height,
-                  left: building.x,
-                  top: 0,
-                  backgroundImage: buildingImage(building.heightTop.label),
-                  backgroundSize: "contain",
-                }}
-              >
-                <div style={styles.label}>{building.heightTop.label}</div>
-              </div>
-
-              <div
-                style={{
-                  ...styles.building,
-                  height: gameHeight - building.heightTop.height - buildingGap,
-                  left: building.x,
-                  top: building.heightTop.height + buildingGap,
-                  backgroundImage: buildingImage(building.heightTop.label),
-                  backgroundSize: "contain",
-                }}
-              >
-              </div>
-            </React.Fragment>
-          ))}
-
-          <div style={styles.scoreOverlay}>
-            <div style={styles.score}>{score}</div>
-          </div>
-
-          {isGameOver && (
-            <div style={styles.gameOver}>
-              <h2>Game Over</h2>
-              <p>Score: {score}</p>
-              <button onClick={resetGame} style={styles.button}>Restart</button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
+    );
 }
 
 const styles = {
-  gameContainer: {
-    width: "1600px",
-    height: "2400px",
-    backgroundImage: 'url(/img/gpbg.jpg)',
-    backgroundSize: 'contain',
-    position: "relative",
-    overflow: "hidden",
-    border: "4px solid #000",
-    margin: "20px auto",
-  },
-  welcomeScreen: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    textAlign: "center",
-    color: "#fff",
-    backgroundColor: "rgba(0,0,0,0.8)",
-    padding: "30px",
-    borderRadius: "20px",
-    boxShadow: "0 0 30px rgba(0,0,0,0.8)",
-  },
-  welcomeTitle: {
-    fontSize: "48px",
-    fontWeight: "bold",
-    marginBottom: "20px",
-  },
-  startButton: {
-    padding: "20px 40px",
-    fontSize: "32px",
-    backgroundColor: "#FF4500",
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
-    borderRadius: "10px",
-  },
-  bird: {
-    width: "100px",
-    height: "100px",
-    backgroundImage: 'url(/img/Bird.png)', 
-    backgroundSize: 'contain',  
-    backgroundRepeat: 'no-repeat',  
-    backgroundPosition: 'center', 
-    position: "absolute",
-    left: "200px",
-    borderRadius: "50%",  
-    boxShadow: "none", 
-  },
-  
-  building: {
-    width: "230px",
-    position: "absolute",
-    backgroundSize: "cover", 
-    backgroundRepeat: "no-repeat",
-  },
-
-  scoreOverlay: {
-    position: "absolute",
-    top: "33.5%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    padding: "20px 40px",
-    borderRadius: "10px",
-    zIndex: 100,
-  },
-  score: {
-    fontSize: "72px",
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  gameOver: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    backgroundColor: "rgba(0,0,0,0.85)",
-    color: "#fff",
-    padding: "40px",
-    textAlign: "center",
-    borderRadius: "20px",
-    boxShadow: "0 0 30px rgba(0,0,0,0.8)",
-  },
-  button: {
-    padding: "20px 40px",
-    fontSize: "32px",
-    backgroundColor: "#FF4500",
-    color: "#fff",
-    border: "none",
-    cursor: "pointer",
-    marginTop: "20px",
-    borderRadius: "10px",
-  },
+    game: {
+        fontFamily: "'Pacifico', cursive",
+        textAlign: "center",
+        color: "white",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        minHeight: "100vh",
+        minWidth: "70vw",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        position: "relative",
+    },
+    hand: {
+        display: "flex",
+        gap: "10px",
+    },
+    card: {
+        width: "80px",
+    },
+    controls: {
+        display: "flex",
+        gap: "10px",
+        marginTop: "20px",
+    },
+    button: {
+        padding: "10px 20px",
+        fontSize: "16px",
+        cursor: "pointer",
+        backgroundColor: "black",
+        color: "white",
+        border: "2px solid white",
+        borderRadius: "10px",
+        transition: "all 0.3s ease",
+    },
+    buttonHover: {
+        backgroundColor: "white",
+        color: "black",
+    },
+    volumeControl: {
+        marginTop: "20px",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+    },
+    welcomeScreen: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundColor: "rgba(0,0,0,0.8)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    startButton: {
+        padding: "15px 30px",
+        fontSize: "20px",
+    },
+    section: {
+        marginBottom: "20px",
+    },
+    title: {
+        margin: "10px 0",
+    }
 };
+
+export default App;
