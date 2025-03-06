@@ -1,0 +1,43 @@
+{
+  "engines": {
+    "node": ">=12.16.3"
+  },
+  "name": "oni",
+  "version": "0.1.0",
+  "description": "Go Pigeon.",
+  "main": "server.js",
+  "scripts": {
+    "dev": "vite --port 5173",
+    "build": "vite build",
+    "start": "node server.js",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-three/drei": "^8.20.2",
+    "@react-three/fiber": "^8.18.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.18.2",
+    "express-validator": "^7.2.0",
+    "jsonwebtoken": "^9.0.1",
+    "mongoose": "^8.7.1",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.9.15",
+    "play-sound": "^1.1.6",
+    "react-responsive": "^10.0.0",
+    "serve-favicon": "^2.5.0",
+    "three": "^0.149.0",
+    "use-sound": "^5.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "sass": "^1.85.1",
+    "vite": "^6.1.1",
+    "vite-plugin-static-copy": "^2.2.0"
+  }
+}
