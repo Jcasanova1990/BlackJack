@@ -74,24 +74,20 @@ function App() {
         audio.play();
     };
 
-    const dealCard = (setHand) => {
-        if (deck.length === 0) return null;
+    function dealCard(deck) {
         const newDeck = [...deck];
         const card = newDeck.pop();
-        setDeck(newDeck);
-        setHand(prev => [...prev, card]);
-        return card;
-    };
+        return { card, newDeck };
+    }
 
     const startGame = () => {
         playSound(shuffleSound);
 
         const newDeck = createDeck();
-        setDeck(newDeck);
-
         const playerStart = [newDeck.pop(), newDeck.pop()];
         const dealerStart = [newDeck.pop(), newDeck.pop()];
 
+        setDeck(newDeck);
         setPlayerHand(playerStart);
         setDealerHand(dealerStart);
         setPlayerScore(calculateScore(playerStart));
@@ -104,14 +100,17 @@ function App() {
         if (gameOver) return;
         playSound(clickSound);
 
-        const card = dealCard(setPlayerHand);
-        if (card) {
-            const newScore = calculateScore([...playerHand, card]);
-            setPlayerScore(newScore);
-            if (newScore > 21) {
-                setResult("You Busted!");
-                setGameOver(true);
-            }
+        const { card, newDeck } = dealCard(deck);
+        const updatedHand = [...playerHand, card];
+        const newScore = calculateScore(updatedHand);
+
+        setDeck(newDeck);
+        setPlayerHand(updatedHand);
+        setPlayerScore(newScore);
+
+        if (newScore > 21) {
+            setResult("You Busted!");
+            setGameOver(true);
         }
     };
 
@@ -119,14 +118,19 @@ function App() {
         if (gameOver) return;
         playSound(clickSound);
 
+        let currentDeck = [...deck];
+        let updatedDealerHand = [...dealerHand];
         let newScore = dealerScore;
 
         while (newScore < 17) {
-            const card = dealCard(setDealerHand);
-            if (!card) break;
-            newScore = calculateScore([...dealerHand, card]);
+            const { card, newDeck } = dealCard(currentDeck);
+            updatedDealerHand.push(card);
+            newScore = calculateScore(updatedDealerHand);
+            currentDeck = newDeck;
         }
 
+        setDeck(currentDeck);
+        setDealerHand(updatedDealerHand);
         setDealerScore(newScore);
         setGameOver(true);
 
@@ -150,7 +154,7 @@ function App() {
                 <div style={styles.welcomeScreen}>
                     <h1>Welcome to Blackjack!</h1>
                     <button
-                        style={{ 
+                        style={{
                             ...styles.button,
                             ...(isHovered.newGame ? styles.buttonHover : {})
                         }}
@@ -201,7 +205,7 @@ function App() {
 
                     <div style={styles.controls}>
                         <button
-                            style={{ 
+                            style={{
                                 ...styles.button,
                                 ...(isHovered.hit ? styles.buttonHover : {})
                             }}
@@ -214,7 +218,7 @@ function App() {
                         </button>
 
                         <button
-                            style={{ 
+                            style={{
                                 ...styles.button,
                                 ...(isHovered.stand ? styles.buttonHover : {})
                             }}
@@ -227,7 +231,7 @@ function App() {
                         </button>
 
                         <button
-                            style={{ 
+                            style={{
                                 ...styles.button,
                                 ...(isHovered.newGame ? styles.buttonHover : {})
                             }}
@@ -250,6 +254,7 @@ function App() {
         </div>
     );
 }
+
 
 const styles = {
     game: {
