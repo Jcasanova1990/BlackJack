@@ -64,9 +64,9 @@ npx vite build
 npm run dev
 
 # 🛠 Technologies Used
-HTML5 Canvas
-CSS3
-JavaScript
+HTML5, Canvas,
+CSS3,
+JavaScript,
 Vite
 
 # 📸 Screenshots
